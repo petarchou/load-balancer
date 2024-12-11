@@ -1,9 +1,12 @@
 package org.pesho.servers.servlets;
 
+import jakarta.servlet.ServletConfig;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.pesho.servers.loadbalancing.LoadBalancer;
+import org.pesho.servers.loadbalancing.RoundRobinBalancer;
 
 import java.io.IOException;
 import java.net.URI;
@@ -36,6 +39,7 @@ public class ResenderServlet extends HttpServlet {
     );
 
     private final HttpClient httpClient;
+    private LoadBalancer loadBalancer;
 
     public ResenderServlet() {
         this.httpClient = HttpClient.newBuilder()
@@ -45,10 +49,15 @@ public class ResenderServlet extends HttpServlet {
     }
 
     @Override
+    public void init(ServletConfig config) throws ServletException {
+        this.loadBalancer = (LoadBalancer) config.getServletContext().getAttribute("loadBalancer");
+        super.init(config);
+    }
+
+    @Override
     public void service(HttpServletRequest req, HttpServletResponse res) throws ServletException,
             IOException {
-        String targetServer = "localhost:8080"; // loadbalanced later
-        forwardRequest(targetServer, req, res);
+        forwardRequest(loadBalancer.nextServer(), req, res);
     }
 
     private void forwardRequest(String targetServer, HttpServletRequest req,
