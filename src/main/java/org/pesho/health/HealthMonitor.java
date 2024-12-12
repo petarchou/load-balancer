@@ -36,53 +36,44 @@ public class HealthMonitor {
         if (initialized) return;
         initialized = true;
 
-        Runnable pingServers = () -> {
-            try {
-                Gson gson = new Gson();
-                Map<String, ServerInfo> servers = JEDIS.hgetAll("servers").entrySet().stream()
-                        .collect(Collectors.toMap(Map.Entry::getKey,
-                                entry -> gson.fromJson(entry.getValue(), ServerInfo.class)));
+        scheduler.scheduleAtFixedRate(this::pingServers, 0, 10, TimeUnit.SECONDS);
+    }
 
-                Set<CompletableFuture<HttpResponse<Void>>> responses = new HashSet<>();
-                for (ServerInfo server : servers.values()) {
-                    HttpRequest req = HttpRequest.newBuilder()
-                            .GET()
-                            .uri(URI.create("http://" + server + "/health"))
-                            .timeout(Duration.ofSeconds(10))
-                            .build();
+    private void pingServers() {
+        try {
+            Gson gson = new Gson();
+            Map<String, ServerInfo> servers = JEDIS.hgetAll("servers").entrySet().stream()
+                    .collect(Collectors.toMap(Map.Entry::getKey,
+                            entry -> gson.fromJson(entry.getValue(), ServerInfo.class)));
 
-                    var futureResponse = client.sendAsync(req,
-                            BodyHandlers.discarding());
-                    responses.add(futureResponse);
-                }
+            for (ServerInfo server : servers.values()) {
+                HttpRequest req = HttpRequest.newBuilder()
+                        .GET()
+                        .uri(URI.create("http://" + server + "/health"))
+                        .timeout(Duration.ofSeconds(10))
+                        .build();
 
-                CompletableFuture.allOf(responses.toArray(new CompletableFuture[0]))
-                        .thenRun(() -> {
-                            for (CompletableFuture<HttpResponse<Void>> future : responses) {
-                                future.thenAccept(response -> {
-                                    String serverName =
-                                            response.uri().getHost() + ":" + response.uri().getPort();
-                                    if (response.statusCode() != HttpStatus.OK_200) {
-                                        if (servers.get(serverName).getStatus().equals("active")) {
-                                            var server = servers.get(serverName);
-                                            server.setStatus("inactive");
-                                            JEDIS.hset("servers", serverName, gson.toJson(server));
-                                        }
-                                    } else if (servers.get(serverName).getStatus().equals(
-                                            "inactive")) {
-                                        var server = servers.get(serverName);
-                                        server.setStatus("active");
-                                        JEDIS.hset("servers", serverName, gson.toJson(server));
-                                    }
-                                });
+                client.sendAsync(req,
+                                BodyHandlers.discarding())
+                        .handle((response, throwable) -> {
+                            if (throwable != null || response.statusCode() != HttpStatus.OK_200) {
+                                // Server is down or responded with error
+                                if (server.getStatus().equals("active")) {
+                                    server.setStatus("inactive");
+                                    JEDIS.hset("servers", server.toString(), gson.toJson(server));
+                                }
+                            } else {
+                                // Server responded OK
+                                if (server.getStatus().equals("inactive")) {
+                                    server.setStatus("active");
+                                    JEDIS.hset("servers", server.toString(), gson.toJson(server));
+                                }
                             }
+                            return response;
                         });
-            } catch (Exception e) {
-                e.printStackTrace();
             }
-
-        };
-
-        scheduler.scheduleAtFixedRate(pingServers, 0, 10, TimeUnit.SECONDS);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 }
