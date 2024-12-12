@@ -1,4 +1,4 @@
-package org.pesho.servers.loadbalancing;
+package org.pesho.loadbalancers;
 
 public interface LoadBalancer {
     String nextServer();

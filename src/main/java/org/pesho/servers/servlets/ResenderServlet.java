@@ -5,8 +5,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.pesho.servers.loadbalancing.LoadBalancer;
-import org.pesho.servers.loadbalancing.RoundRobinBalancer;
+import org.pesho.loadbalancers.LoadBalancer;
 
 import java.io.IOException;
 import java.net.URI;
@@ -70,7 +69,8 @@ public class ResenderServlet extends HttpServlet {
             // Create HTTP request
             HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
                     .uri(new URI(targetUrl))
-                    .method(req.getMethod(), getRequestBody(req));
+                    .method(req.getMethod(), getRequestBody(req))
+                    .timeout(Duration.ofSeconds(10));
 
             // Copy original headers
             Collections.list(req.getHeaderNames()).forEach(headerName -> {
