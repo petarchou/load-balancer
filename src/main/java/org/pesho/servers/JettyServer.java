@@ -6,6 +6,7 @@ import org.eclipse.jetty.server.Server;
 import org.eclipse.jetty.server.ServerConnector;
 import org.eclipse.jetty.util.thread.VirtualThreadPool;
 import org.jetbrains.annotations.NotNull;
+import org.pesho.config.Environment;
 import org.pesho.health.HealthMonitor;
 import org.pesho.loadbalancers.RoundRobinBalancer;
 import org.pesho.servers.servlets.InternalServlet;
@@ -37,10 +38,8 @@ public class JettyServer {
 
     private static @NotNull ServletContextHandler createServletContextHandler() {
         ServletContextHandler handler = new ServletContextHandler("", true, false);
-
-        //context stores all objects for now
-        String[] servers = {"localhost:8080", "localhost:8081"};
-        handler.setAttribute("loadBalancer", new RoundRobinBalancer(servers));
+        handler.setAttribute("loadBalancer", new RoundRobinBalancer(
+                Environment.getIntProperty("HEALTH_INTERVAL_MILLIS")));
 
 
         ServletHolder genericHolder = new ServletHolder(InternalServlet.class);
