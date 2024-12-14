@@ -8,6 +8,7 @@ import org.eclipse.jetty.util.thread.VirtualThreadPool;
 import org.jetbrains.annotations.NotNull;
 import org.pesho.config.Environment;
 import org.pesho.health.HealthMonitor;
+import org.pesho.loadbalancers.LoadBalancer;
 import org.pesho.loadbalancers.RoundRobinBalancer;
 import org.pesho.servers.servlets.InternalServlet;
 import org.pesho.servers.servlets.ResenderServlet;
@@ -28,7 +29,7 @@ public class JettyServer {
             server.addConnector(c);
 
             server.start();
-            new HealthMonitor().initialize();
+            new HealthMonitor((LoadBalancer) handler.getAttribute("loadBalancer")).initialize();
             System.out.println("Server started");
             server.join();
         } catch (Exception e) {
@@ -38,8 +39,7 @@ public class JettyServer {
 
     private static @NotNull ServletContextHandler createServletContextHandler() {
         ServletContextHandler handler = new ServletContextHandler("", true, false);
-        handler.setAttribute("loadBalancer", new RoundRobinBalancer(
-                Environment.getIntProperty("HEALTH_INTERVAL_MILLIS")));
+        handler.setAttribute("loadBalancer", new RoundRobinBalancer());
 
 
         ServletHolder genericHolder = new ServletHolder(InternalServlet.class);

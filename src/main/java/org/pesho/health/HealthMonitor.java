@@ -3,17 +3,16 @@ package org.pesho.health;
 import com.google.gson.Gson;
 import org.eclipse.jetty.http.HttpStatus;
 import org.pesho.ServerInfo;
+import org.pesho.config.Environment;
+import org.pesho.loadbalancers.LoadBalancer;
 
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.net.http.HttpResponse.BodyHandlers;
 import java.time.Duration;
-import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -26,17 +25,22 @@ public class HealthMonitor {
     private final HttpClient client;
     private boolean initialized;
 
-    public HealthMonitor() {
+    private final LoadBalancer activeLoadBalancer;
+
+    public HealthMonitor(LoadBalancer loadBalancer) {
+        this.activeLoadBalancer = loadBalancer;
         scheduler = Executors.newSingleThreadScheduledExecutor();
         client =
                 HttpClient.newBuilder().executor(Executors.newVirtualThreadPerTaskExecutor()).build();
+        System.out.println("Health monitor started");
     }
 
     public synchronized void initialize() {
         if (initialized) return;
         initialized = true;
 
-        scheduler.scheduleAtFixedRate(this::pingServers, 0, 10, TimeUnit.SECONDS);
+        scheduler.scheduleAtFixedRate(this::pingServers, 0,
+                Environment.getIntProperty("HEALTH_INTERVAL_MILLIS"), TimeUnit.MILLISECONDS);
     }
 
     private void pingServers() {
@@ -72,6 +76,11 @@ public class HealthMonitor {
                             return response;
                         });
             }
+
+            List<String> serverUris = servers.keySet().stream()
+                    .filter(key -> servers.get(key).getStatus().equals("active"))
+                    .toList();
+            activeLoadBalancer.setServers(serverUris);
         } catch (Exception e) {
             e.printStackTrace();
         }
