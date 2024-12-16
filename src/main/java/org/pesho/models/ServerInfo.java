@@ -1,4 +1,4 @@
-package org.pesho;
+package org.pesho.models;
 
 import java.util.Objects;
 

@@ -2,7 +2,7 @@ package org.pesho.health;
 
 import com.google.gson.Gson;
 import org.eclipse.jetty.http.HttpStatus;
-import org.pesho.ServerInfo;
+import org.pesho.models.ServerInfo;
 import org.pesho.config.Environment;
 import org.pesho.loadbalancers.LoadBalancer;
 
